@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin — Clean Rock</title>
+    <link rel="stylesheet" href="/assets/public/styles.css">
+    <style>
+        main { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+        form.score-form { background: white; padding: 1.5rem; border: 1px solid var(--border);
+                          border-radius: 6px; margin-bottom: 2rem; }
+        .row { display: flex; gap: 1rem; margin-bottom: 0.75rem; align-items: center; }
+        .row label { flex: 0 0 140px; }
+        .row input { flex: 1; padding: 0.4rem 0.5rem; font-size: 1rem;
+                     border: 1px solid var(--border); border-radius: 4px; }
+        button, a.btn { padding: 0.5rem 1rem; font-size: 1rem; background: var(--accent);
+                 color: white; border: 0; border-radius: 4px; cursor: pointer;
+                 text-decoration: none; display: inline-block; }
+        button.secondary, a.btn.secondary { background: #888; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .topbar .actions { display: flex; gap: 0.5rem; align-items: center; }
+        .ok { color: var(--accent); margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="topbar">
+            <h1>Add scores</h1>
+            <div class="actions">
+                <a class="btn secondary" href="/">View page</a>
+                <form action="/api/admin/logout" method="POST" style="margin:0">
+                    <button type="submit" class="secondary">Log out</button>
+                </form>
+            </div>
+        </div>
+        <div id="ok" class="ok" hidden>Saved.</div>
+
+        <form class="score-form" action="/api/admin/scores" method="POST">
+            <div class="row">
+                <label for="game_date">Date (Thursday)</label>
+                <input type="date" id="game_date" name="game_date" required>
+            </div>
+            <div id="bowler-inputs">Loading bowlers&hellip;</div>
+            <button type="submit">Save scores</button>
+        </form>
+
+        <h2>Recent weeks</h2>
+        <table id="recent-table">
+            <thead></thead>
+            <tbody><tr><td>Loading&hellip;</td></tr></tbody>
+        </table>
+    </main>
+
+    <script>
+        if (new URLSearchParams(location.search).has("ok")) {
+            document.getElementById("ok").hidden = false;
+        }
+
+        // Default to most recent Thursday.
+        (function () {
+            const d = new Date();
+            const day = d.getDay();             // 0=Sun..6=Sat
+            const diff = (day - 4 + 7) % 7;     // back to Thursday
+            d.setDate(d.getDate() - diff);
+            document.getElementById("game_date").valueAsDate = d;
+        })();
+
+        async function load() {
+            const [bowlers, recent] = await Promise.all([
+                fetch("/api/admin/bowlers").then((r) => r.json()),
+                fetch("/api/admin/recent").then((r) => r.json()),
+            ]);
+            renderBowlers(bowlers);
+            renderRecent(bowlers, recent);
+        }
+
+        function renderBowlers(bowlers) {
+            const host = document.getElementById("bowler-inputs");
+            host.innerHTML = "";
+            for (const b of bowlers) {
+                const row = document.createElement("div");
+                row.className = "row";
+                const lbl = document.createElement("label");
+                lbl.htmlFor = `score_${b.id}`;
+                lbl.textContent = b.name;
+                const inp = document.createElement("input");
+                inp.type = "number";
+                inp.min = "0";
+                inp.max = "900";
+                inp.id = `score_${b.id}`;
+                inp.name = `score_${b.id}`;
+                inp.placeholder = "blank = absent";
+                row.appendChild(lbl);
+                row.appendChild(inp);
+                host.appendChild(row);
+            }
+        }
+
+        function renderRecent(bowlers, recent) {
+            const tbl = document.getElementById("recent-table");
+            const thead = tbl.querySelector("thead");
+            const tbody = tbl.querySelector("tbody");
+            thead.innerHTML = "";
+            tbody.innerHTML = "";
+            const trh = document.createElement("tr");
+            for (const h of ["Date", ...bowlers.map((b) => b.name)]) {
+                const th = document.createElement("th");
+                th.textContent = h;
+                trh.appendChild(th);
+            }
+            thead.appendChild(trh);
+            if (recent.length === 0) {
+                const tr = document.createElement("tr");
+                const td = document.createElement("td");
+                td.colSpan = 1 + bowlers.length;
+                td.textContent = "No scores yet.";
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+                return;
+            }
+            for (const week of recent) {
+                const tr = document.createElement("tr");
+                const td0 = document.createElement("td");
+                td0.textContent = week.game_date;
+                tr.appendChild(td0);
+                for (const b of bowlers) {
+                    const td = document.createElement("td");
+                    const v = week.scores[b.name];
+                    td.textContent = v === null || v === undefined ? "" : v;
+                    td.className = "num";
+                    tr.appendChild(td);
+                }
+                tbody.appendChild(tr);
+            }
+        }
+
+        load().catch((e) => {
+            document.getElementById("bowler-inputs").textContent = "Failed to load: " + e;
+        });
+    </script>
+</body>
+</html>

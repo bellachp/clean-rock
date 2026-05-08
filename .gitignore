@@ -150,6 +150,7 @@ activemq-data/
 # Environments
 .env
 .envrc
+.env.example
 .venv
 env/
 venv/
@@ -219,3 +220,7 @@ __marimo__/
 
 # files for claude to ignore
 PROJPLAN.md
+
+# clean-rock
+data/
+

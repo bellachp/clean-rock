@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin login — Clean Rock</title>
+    <link rel="stylesheet" href="/assets/public/styles.css">
+    <style>
+        main { max-width: 360px; margin: 4rem auto; padding: 2rem; background: white;
+               border: 1px solid var(--border); border-radius: 6px; }
+        label { display: block; margin-bottom: 0.5rem; }
+        input[type=password] { width: 100%; padding: 0.5rem; font-size: 1rem;
+                               border: 1px solid var(--border); border-radius: 4px; }
+        button { margin-top: 1rem; padding: 0.5rem 1rem; font-size: 1rem;
+                 background: var(--accent); color: white; border: 0; border-radius: 4px; cursor: pointer; }
+        .error { color: #c33; margin-top: 0.5rem; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Admin login</h1>
+        <form action="/api/admin/login" method="POST">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required autofocus>
+            <button type="submit">Log in</button>
+        </form>
+        <div class="error" id="error" hidden>Wrong password.</div>
+    </main>
+    <script>
+        if (new URLSearchParams(location.search).has("error")) {
+            document.getElementById("error").hidden = false;
+        }
+    </script>
+</body>
+</html>
