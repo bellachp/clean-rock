@@ -36,6 +36,12 @@ resource "aws_instance" "app" {
   key_name               = aws_key_pair.admin.key_name
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
 
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+  }
+
   root_block_device {
     volume_type = "gp3"
     volume_size = 10
@@ -50,6 +56,36 @@ resource "aws_instance" "app" {
   }
 
   tags = { Name = "${var.project}-app" }
+}
+
+resource "aws_iam_role_policy" "ssm_read" {
+  name = "${var.project}-ssm-read"
+  role = aws_iam_role.ec2.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath",
+        ]
+        Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.project}/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = "kms:Decrypt"
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = "ssm.${var.aws_region}.amazonaws.com"
+          }
+        }
+      },
+    ]
+  })
 }
 
 resource "aws_eip" "app" {
