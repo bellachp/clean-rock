@@ -4,6 +4,9 @@
     --muted: #666;
     --border: #ddd;
     --accent: #0a5;
+    --card: #ececec;
+    --card-header: #dcdcdc;
+    --card-hover: #e3e3e3;
 }
 
 * { box-sizing: border-box; }
@@ -64,7 +67,7 @@ section h2 {
 #chart {
     width: 100%;
     min-height: 400px;
-    background: white;
+    background: var(--card);
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 1rem;
@@ -73,7 +76,7 @@ section h2 {
 table {
     width: 100%;
     border-collapse: collapse;
-    background: white;
+    background: var(--card);
     border: 1px solid var(--border);
     border-radius: 6px;
     overflow: hidden;
@@ -86,7 +89,7 @@ th, td {
 }
 
 th {
-    background: #f0f0f0;
+    background: var(--card-header);
     user-select: none;
     position: sticky;
     top: 0;
@@ -97,6 +100,6 @@ th[data-dir="desc"]::after { content: " ▼"; color: var(--muted); }
 
 td.num, th.num { text-align: center; font-variant-numeric: tabular-nums; }
 
-tbody tr:hover { background: #f6f6f6; }
+tbody tr:hover { background: var(--card-hover); }
 
 footer { text-align: center; padding: 2rem; color: var(--muted); }
