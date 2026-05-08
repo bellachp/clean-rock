@@ -110,7 +110,16 @@ def chart_spec(ma_df: pd.DataFrame) -> dict[str, Any]:
         "description": "10-game moving average per bowler",
         "width": "container",
         "height": 400,
+        "padding": 16,
+        "autosize": {"type": "fit", "contains": "padding"},
         "data": {"values": values},
+        "params": [
+            {
+                "name": "view",
+                "select": {"type": "interval", "encodings": ["x"]},
+                "bind": "scales",
+            }
+        ],
         "mark": {"type": "line", "point": True, "interpolate": "monotone"},
         "encoding": {
             "x": {"field": "game_date", "type": "temporal", "title": "Date"},
@@ -120,7 +129,12 @@ def chart_spec(ma_df: pd.DataFrame) -> dict[str, Any]:
                 "title": "10-game MA",
                 "scale": {"zero": False},
             },
-            "color": {"field": "bowler", "type": "nominal", "title": "Bowler"},
+            "color": {
+                "field": "bowler",
+                "type": "nominal",
+                "title": "Bowler",
+                "legend": {"orient": "bottom", "direction": "horizontal"},
+            },
             "tooltip": [
                 {"field": "game_date", "type": "temporal", "title": "Date"},
                 {"field": "bowler", "type": "nominal"},
