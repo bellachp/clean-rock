@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars (gitignored) and fill in real values.
+
+home_ip = "x.x.x.x/32"
+
+# Paste the contents of ~/.ssh/clean-rock.pub here (single line).
+ssh_public_key = "ssh-ed25519 AAAA... user@host"
