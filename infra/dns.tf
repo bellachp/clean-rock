@@ -58,6 +58,11 @@ resource "aws_route53_record" "alias_aaaa" {
   }
 }
 
+output "site_url" {
+  description = "Canonical public site URL"
+  value       = "https://${local.canonical_domain}"
+}
+
 output "earth_nameservers" {
   description = "Paste these into Porkbun's nameserver settings for thatsacleanrock.earth"
   value       = aws_route53_zone.earth.name_servers
