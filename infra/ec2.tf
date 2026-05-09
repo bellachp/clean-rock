@@ -67,7 +67,10 @@ resource "aws_instance" "app" {
     ignore_changes = [ami]
   }
 
-  tags = { Name = "${var.project}-app" }
+  tags = {
+    Name     = "${var.project}-app"
+    Snapshot = "true"
+  }
 }
 
 resource "aws_iam_role_policy" "ssm_read" {
