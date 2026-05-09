@@ -51,12 +51,21 @@ resource "aws_cloudfront_origin_access_control" "site" {
   signing_protocol                  = "sigv4"
 }
 
+resource "aws_cloudfront_function" "redirect_to_canonical" {
+  name    = "${var.project}-redirect-to-canonical"
+  runtime = "cloudfront-js-2.0"
+  publish = true
+  comment = "301 non-canonical hostnames to ${local.canonical_domain}"
+  code    = file("${path.module}/redirect.js")
+}
+
 resource "aws_cloudfront_distribution" "site" {
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
   comment             = "${var.project} public site"
   price_class         = "PriceClass_100" # US/Canada/Europe — cheapest tier
+  aliases             = local.all_hostnames
 
   origin {
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
@@ -73,6 +82,11 @@ resource "aws_cloudfront_distribution" "site" {
 
     cache_policy_id            = data.aws_cloudfront_cache_policy.caching_optimized.id
     response_headers_policy_id = data.aws_cloudfront_response_headers_policy.security_headers.id
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.redirect_to_canonical.arn
+    }
   }
 
   restrictions {
@@ -82,7 +96,9 @@ resource "aws_cloudfront_distribution" "site" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    acm_certificate_arn      = aws_acm_certificate_validation.site.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 
   tags = { Name = "${var.project}-site" }
