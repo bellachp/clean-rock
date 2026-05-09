@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     site_dir: Path = Field(default=REPO_ROOT / "site", alias="SITE_DIR")
     web_dir: Path = Field(default=REPO_ROOT / "web", alias="WEB_DIR")
     seeds_dir: Path = Field(default=REPO_ROOT / "seeds", alias="SEEDS_DIR")
+    s3_bucket: str | None = Field(default=None, alias="CLEAN_ROCK_S3_BUCKET")
+    cloudfront_distribution_id: str | None = Field(
+        default=None, alias="CLEAN_ROCK_CLOUDFRONT_DISTRIBUTION_ID"
+    )
 
     def resolve(self) -> "Settings":
         # Make relative paths absolute against repo root.

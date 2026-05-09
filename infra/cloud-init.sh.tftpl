@@ -1,0 +1,97 @@
+#!/bin/bash
+set -euo pipefail
+exec > >(tee -a /var/log/clean-rock-cloud-init.log) 2>&1
+echo "[$(date -Is)] cloud-init starting"
+
+dnf install -y podman awscli
+
+mkdir -p /var/lib/clean-rock/data /etc/clean-rock
+chmod 755 /var/lib/clean-rock /var/lib/clean-rock/data
+chmod 755 /etc/clean-rock
+
+# Non-secret env file (registry, S3 bucket, CF distribution id, image tag, region).
+cat > /etc/clean-rock/env <<ENVEOF
+ECR_REGISTRY=${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com
+CLEAN_ROCK_S3_BUCKET=${s3_bucket}
+CLEAN_ROCK_CLOUDFRONT_DISTRIBUTION_ID=${cloudfront_distribution_id}
+IMAGE_TAG=latest
+AWS_REGION=${aws_region}
+ENVEOF
+chmod 644 /etc/clean-rock/env
+
+# Loader pulls SSM SecureString params at boot, writes /etc/clean-rock/secrets (mode 0600).
+cat > /usr/local/bin/clean-rock-load-secrets.sh <<'LOADER_EOF'
+#!/bin/bash
+set -euo pipefail
+REGION=$(awk -F= '/^AWS_REGION=/{print $2}' /etc/clean-rock/env)
+{
+  echo "ADMIN_PASSWORD=$(aws ssm get-parameter --region "$REGION" --name /clean-rock/admin_password --with-decryption --query Parameter.Value --output text)"
+  echo "SESSION_SECRET=$(aws ssm get-parameter --region "$REGION" --name /clean-rock/session_secret --with-decryption --query Parameter.Value --output text)"
+} > /etc/clean-rock/secrets
+chmod 600 /etc/clean-rock/secrets
+LOADER_EOF
+chmod +x /usr/local/bin/clean-rock-load-secrets.sh
+
+cat > /etc/systemd/system/clean-rock-secrets.service <<'SECRETS_UNIT_EOF'
+[Unit]
+Description=Load Clean Rock secrets from SSM Parameter Store
+After=network-online.target
+Wants=network-online.target
+Before=clean-rock.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/clean-rock-load-secrets.sh
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
+SECRETS_UNIT_EOF
+
+cat > /etc/systemd/system/clean-rock.service <<'APP_UNIT_EOF'
+[Unit]
+Description=Clean Rock bowling app
+After=network-online.target clean-rock-secrets.service
+Wants=network-online.target
+Requires=clean-rock-secrets.service
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=120
+
+EnvironmentFile=/etc/clean-rock/env
+EnvironmentFile=/etc/clean-rock/secrets
+
+ExecStartPre=-/usr/bin/podman stop clean-rock
+ExecStartPre=-/usr/bin/podman rm clean-rock
+ExecStartPre=/bin/bash -c '/usr/bin/aws ecr get-login-password --region $${AWS_REGION} | /usr/bin/podman login --username AWS --password-stdin $${ECR_REGISTRY}'
+ExecStartPre=/usr/bin/podman pull $${ECR_REGISTRY}/clean-rock:$${IMAGE_TAG}
+
+ExecStart=/usr/bin/podman run \
+  --name clean-rock \
+  --rm \
+  -p 8000:8000 \
+  -v /var/lib/clean-rock/data:/var/lib/clean-rock/data:Z \
+  -e ADMIN_PASSWORD \
+  -e SESSION_SECRET \
+  -e CLEAN_ROCK_S3_BUCKET \
+  -e CLEAN_ROCK_CLOUDFRONT_DISTRIBUTION_ID \
+  -e AWS_REGION \
+  -e DATABASE_PATH=/var/lib/clean-rock/data/scores.db \
+  $${ECR_REGISTRY}/clean-rock:$${IMAGE_TAG}
+
+ExecStop=/usr/bin/podman stop clean-rock
+
+[Install]
+WantedBy=multi-user.target
+APP_UNIT_EOF
+
+systemctl daemon-reload
+systemctl enable clean-rock-secrets.service
+systemctl enable clean-rock.service
+# Don't auto-start clean-rock.service yet — image needs to be pushed to ECR first.
+# After first manual `podman push`, SSH in and run: sudo systemctl start clean-rock
+
+echo "[$(date -Is)] cloud-init done"

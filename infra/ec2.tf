@@ -2,6 +2,15 @@ data "aws_ssm_parameter" "al2023_arm" {
   name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64"
 }
 
+locals {
+  cloud_init = templatefile("${path.module}/cloud-init.sh.tftpl", {
+    aws_region                 = var.aws_region
+    aws_account_id             = data.aws_caller_identity.current.account_id
+    s3_bucket                  = aws_s3_bucket.site.id
+    cloudfront_distribution_id = aws_cloudfront_distribution.site.id
+  })
+}
+
 resource "aws_key_pair" "admin" {
   key_name   = "${var.project}-admin"
   public_key = var.ssh_public_key
@@ -39,8 +48,11 @@ resource "aws_instance" "app" {
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
-    http_put_response_hop_limit = 1
+    http_put_response_hop_limit = 2 # 2 so containers (extra hop) can reach IMDS
   }
+
+  user_data                   = local.cloud_init
+  user_data_replace_on_change = false
 
   root_block_device {
     volume_type = "gp3"

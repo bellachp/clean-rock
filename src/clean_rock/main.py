@@ -14,7 +14,13 @@ settings = config.get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init(settings.database_path)
-    builder.build(settings.database_path, settings.site_dir, settings.web_dir)
+    builder.build(
+        settings.database_path,
+        settings.site_dir,
+        settings.web_dir,
+        s3_bucket=settings.s3_bucket,
+        cloudfront_distribution_id=settings.cloudfront_distribution_id,
+    )
     yield
 
 
@@ -98,7 +104,13 @@ async def post_scores(request: Request):
                 raise HTTPException(status_code=400, detail=f"score out of range for {b['name']}")
             repo.upsert_score(conn, game_date, b["id"], score)
 
-    builder.build(settings.database_path, settings.site_dir, settings.web_dir)
+    builder.build(
+        settings.database_path,
+        settings.site_dir,
+        settings.web_dir,
+        s3_bucket=settings.s3_bucket,
+        cloudfront_distribution_id=settings.cloudfront_distribution_id,
+    )
 
     if "application/json" in request.headers.get("accept", ""):
         return JSONResponse({"ok": True})
