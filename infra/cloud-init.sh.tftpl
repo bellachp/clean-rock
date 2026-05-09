@@ -3,7 +3,8 @@ set -euo pipefail
 exec > >(tee -a /var/log/clean-rock-cloud-init.log) 2>&1
 echo "[$(date -Is)] cloud-init starting"
 
-dnf install -y podman awscli
+dnf install -y docker awscli
+systemctl enable --now docker.service
 
 mkdir -p /var/lib/clean-rock/data /etc/clean-rock
 chmod 755 /var/lib/clean-rock /var/lib/clean-rock/data
@@ -51,9 +52,9 @@ SECRETS_UNIT_EOF
 cat > /etc/systemd/system/clean-rock.service <<'APP_UNIT_EOF'
 [Unit]
 Description=Clean Rock bowling app
-After=network-online.target clean-rock-secrets.service
+After=network-online.target docker.service clean-rock-secrets.service
 Wants=network-online.target
-Requires=clean-rock-secrets.service
+Requires=clean-rock-secrets.service docker.service
 
 [Service]
 Type=simple
@@ -64,16 +65,16 @@ TimeoutStartSec=120
 EnvironmentFile=/etc/clean-rock/env
 EnvironmentFile=/etc/clean-rock/secrets
 
-ExecStartPre=-/usr/bin/podman stop clean-rock
-ExecStartPre=-/usr/bin/podman rm clean-rock
-ExecStartPre=/bin/bash -c '/usr/bin/aws ecr get-login-password --region $${AWS_REGION} | /usr/bin/podman login --username AWS --password-stdin $${ECR_REGISTRY}'
-ExecStartPre=/usr/bin/podman pull $${ECR_REGISTRY}/clean-rock:$${IMAGE_TAG}
+ExecStartPre=-/usr/bin/docker stop clean-rock
+ExecStartPre=-/usr/bin/docker rm clean-rock
+ExecStartPre=/bin/bash -c '/usr/bin/aws ecr get-login-password --region $${AWS_REGION} | /usr/bin/docker login --username AWS --password-stdin $${ECR_REGISTRY}'
+ExecStartPre=/usr/bin/docker pull $${ECR_REGISTRY}/clean-rock:$${IMAGE_TAG}
 
-ExecStart=/usr/bin/podman run \
+ExecStart=/usr/bin/docker run \
   --name clean-rock \
   --rm \
   -p 8000:8000 \
-  -v /var/lib/clean-rock/data:/var/lib/clean-rock/data:Z \
+  -v /var/lib/clean-rock/data:/var/lib/clean-rock/data \
   -e ADMIN_PASSWORD \
   -e SESSION_SECRET \
   -e CLEAN_ROCK_S3_BUCKET \
@@ -82,7 +83,7 @@ ExecStart=/usr/bin/podman run \
   -e DATABASE_PATH=/var/lib/clean-rock/data/scores.db \
   $${ECR_REGISTRY}/clean-rock:$${IMAGE_TAG}
 
-ExecStop=/usr/bin/podman stop clean-rock
+ExecStop=/usr/bin/docker stop clean-rock
 
 [Install]
 WantedBy=multi-user.target
